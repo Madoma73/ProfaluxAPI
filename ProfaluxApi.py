@@ -76,10 +76,10 @@ with open('/domotique/ProfaluxApi/zigbee_devices.txt') as devices:
     line = line.rstrip()
 
     VoletId= line.split('|')[0]
-    VoletDelay = line.split('|')[1]
+    VoletEndPoint = line.split('|')[1]
     VoletName = line.split('|')[2]
     Volet["Id"] =   VoletId
-    Volet["Delay"] =  VoletDelay
+    Volet["EndPoint"] =  VoletEndPoint
 
     ArrVolets[VoletName] = Volet
 
@@ -113,7 +113,7 @@ class Volets(Resource):
     with eventlet.Timeout(5, False):
       delai()
       #logging.debug(line)
-      ser.write("AT+READATR:" + ArrVolets[VoletName]['Id'] + "," + ArrVolets[VoletName]['Delay'] + ",0,0008,0000\r")
+      ser.write("AT+READATR:" + ArrVolets[VoletName]['Id'] + "," + ArrVolets[VoletName]['EndPoint'] + ",0,0008,0000\r")
       receive=""
       logging.debug("1 " + VoletName)
       while ("OK" not in receive):
@@ -150,7 +150,7 @@ class Volets(Resource):
     
     if Pourcentage == 0: # Fermer/Descendre le Volet
       with eventlet.Timeout(5, False):
-        ser.write("AT+LCMV:" + ArrVolets[VoletName]['Id'] + "," + ArrVolets[VoletName]['Delay'] + ",0,1,01,FF\r")
+        ser.write("AT+LCMV:" + ArrVolets[VoletName]['Id'] + "," + ArrVolets[VoletName]['EndPoint'] + ",0,1,01,FF\r")
         #ser.write("AT+LCMV:" + "0000" + "," + "01" + ",0,1,00,FF\r")
         receive = ""
         delai()
@@ -161,15 +161,15 @@ class Volets(Resource):
         receive = receive.rstrip()
         if (receive.split(',')[4] != "00"):
           logging.debug("Transmit KO to " + VoletName + "\n")
-          return('status': 'NOK')
+          return{'status': 'NOK'}
         else:
           logging.debug("Transmit OK to " + VoletName + "\n")
-          return('status': 'OK')
+          return{'status': 'OK'}
 
 
     elif Pourcentage == 100: # Ouvrir/Monter le Volet
       with eventlet.Timeout(5, False):
-        ser.write("AT+LCMV:" + ArrVolets[VoletName]['Id'] + "," + ArrVolets[VoletName]['Delay'] + ",0,1,00,FF\r")
+        ser.write("AT+LCMV:" + ArrVolets[VoletName]['Id'] + "," + ArrVolets[VoletName]['EndPoint'] + ",0,1,00,FF\r")
         receive = ""
         delai()
         while ("DFTREP" not in receive):
@@ -179,10 +179,10 @@ class Volets(Resource):
         receive = receive.rstrip()
         if (receive.split(',')[4] != "00"):
           logging.debug("Transmit KO to " + VoletName + "\n")
-          return('status': 'NOK')
+          return{'status': 'NOK'}
         else:
           logging.debug("Transmit OK to " + VoletName + "\n")
-          return('status': 'OK')
+          return{'status': 'OK'}
     ## sinon ouvrir a %
     else:
       with eventlet.Timeout(5, False):
@@ -192,7 +192,7 @@ class Volets(Resource):
         level = Pourcentage * Pourcentage * a + Pourcentage * b + c 
         level = int(level)
         level = format(level,'02X')
-        ser.write("AT+LCMVTOLEV:" + ArrVolets[VoletName]['Id'] + "," + ArrVolets[VoletName]['Delay'] + ",0,0," + level + ",000F\r")
+        ser.write("AT+LCMVTOLEV:" + ArrVolets[VoletName]['Id'] + "," + ArrVolets[VoletName]['EndPoint'] + ",0,0," + level + ",000F\r")
         receive = ""
         delai()
         while ("DFTREP" not in receive):
@@ -203,10 +203,10 @@ class Volets(Resource):
         if (receive.split(',')[4] != "00"):
           #print receive.split(',')[4]
           logging.debug("Transmit KO to " + VoletName + "\n")
-          return('status': 'NOK')
+          return{'status': 'NOK'}
         else:
           logging.debug( "Transmit OK to " + VoletName + "\n")
-          return('status': 'OK')
+          return{'status': 'OK'}
     
     return {'hello': str(VoletName) + ' ' + str(Pourcentage) + "%"}
 
