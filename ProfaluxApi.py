@@ -6,6 +6,7 @@ pip install flask_restful
 pip install pyserial
 pip install requests
 pip install eventlet
+pip install python-simplexml
 '''
 import math
 import serial
@@ -21,9 +22,9 @@ import os
 #import urlparse
 import eventlet
 
-from BaseHTTPServer import BaseHTTPRequestHandler, HTTPServer
-from flask import Flask
+from flask import make_response, Flask
 from flask_restful import Resource, Api
+from simplexml import dumps
 
 import logging
 logging.basicConfig(filename='ProfaluxApi.log',level=logging.DEBUG,format='%(asctime)s:%(levelname)s %(message)s')
@@ -52,7 +53,7 @@ def send_order (order):
       EUI_dongle = line
       EUI_dongle = EUI_dongle.replace("\r","")
       EUI_dongle = EUI_dongle.replace("\n","")
-      print line
+      logging.debug(line)
       line = ""
 
 
@@ -82,11 +83,20 @@ with open('/domotique/ProfaluxApi/zigbee_devices.txt') as devices:
 
     ArrVolets[VoletName] = Volet
 
-print ArrVolets
+logging.debug(ArrVolets)
 
 ## API RESTFUL
+def output_xml(data, code, headers=None):
+    """Makes a Flask response with a XML encoded body"""
+    resp = make_response(dumps({'response' :data}), code)
+    resp.headers.extend(headers or {})
+    return resp
+
 app = Flask(__name__)
-api = Api(app)
+api = Api(app,default_mediatype='application/xml')
+api.representations['application/xml'] = output_xml
+
+
 
 class Volets(Resource):
   '''def __init__(**kwargs):
@@ -117,26 +127,26 @@ class Volets(Resource):
           logging.debug("RECEIVED:" + receive)
         receive = receive.rstrip()
         receiveSplit=receive.split(',')
-        print receiveSplit
+        logging.debug(receiveSplit)
         level = int(receiveSplit[5],16)
-        print "Raw level:" + str(level)
+        logging.debug("Raw level:" + str(level))
         level = int(level * level * a + level * b + c)
         
         #level = int(math.ceil(level / 10.0)) * 10
-        print "level:" + str(level)
+        logging.debug("level:" + str(level))
         if level < 0 :
           level = 0
         elif level >10:
           level =int(round(level,-1))
         logging.debug(VoletName + " est au niveau " + str(level) + " \n")
-        level = int(level * 32 / 100)
+        #level = int(level * 32 / 100)
           
 
-    return {'hello': 'world'}
+    return {'level': level}
     
   def put(self, VoletName, Pourcentage):
     # Positionne le volet a un certain niveau
-    logging.debug('logging.debug ' + ser.name)
+    logging.debug('Serial Device:' + ser.name)
     
     if Pourcentage == 0: # Fermer/Descendre le Volet
       with eventlet.Timeout(5, False):
@@ -146,13 +156,15 @@ class Volets(Resource):
         delai()
         while ("DFTREP" not in receive):
           receive = ser.readline()
-          print receive
+          logging.debug(receive)
           delai()
         receive = receive.rstrip()
         if (receive.split(',')[4] != "00"):
           logging.debug("Transmit KO to " + VoletName + "\n")
+          return('status': 'NOK')
         else:
           logging.debug("Transmit OK to " + VoletName + "\n")
+          return('status': 'OK')
 
 
     elif Pourcentage == 100: # Ouvrir/Monter le Volet
@@ -162,13 +174,15 @@ class Volets(Resource):
         delai()
         while ("DFTREP" not in receive):
           receive = ser.readline()
-          print receive
+          logging.debug(receive)
           delai()
         receive = receive.rstrip()
         if (receive.split(',')[4] != "00"):
           logging.debug("Transmit KO to " + VoletName + "\n")
+          return('status': 'NOK')
         else:
           logging.debug("Transmit OK to " + VoletName + "\n")
+          return('status': 'OK')
     ## sinon ouvrir a %
     else:
       with eventlet.Timeout(5, False):
@@ -183,14 +197,16 @@ class Volets(Resource):
         delai()
         while ("DFTREP" not in receive):
           receive = ser.readline()
-          print receive
+          logging.debug(receive)
           delai()
         receive = receive.rstrip()
         if (receive.split(',')[4] != "00"):
           #print receive.split(',')[4]
-          print "Transmit KO to " + VoletName + "\n"
+          logging.debug("Transmit KO to " + VoletName + "\n")
+          return('status': 'NOK')
         else:
-          print "Transmit OK to " + VoletName + "\n"
+          logging.debug( "Transmit OK to " + VoletName + "\n")
+          return('status': 'OK')
     
     return {'hello': str(VoletName) + ' ' + str(Pourcentage) + "%"}
 
